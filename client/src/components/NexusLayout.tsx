@@ -14,6 +14,7 @@ export function NexusLayout() {
     "OFFLINE" | "READY" | "TRANSMITTING" | "GENERATING" | "RECEIVING"
   >("READY");
   const [activeTab, setActiveTab] = useState("narrative");
+  const [currentChunkLocation, setCurrentChunkLocation] = useState<string | null>("Night City Center");
 
   const handleCommand = (command: string) => {
     console.log("Command:", command);
@@ -110,7 +111,7 @@ export function NexusLayout() {
         </TabsContent>
 
         <TabsContent value="map" className="flex-1 overflow-hidden m-0">
-          <MapTab />
+          <MapTab currentChunkLocation={currentChunkLocation} />
         </TabsContent>
 
         <TabsContent value="characters" className="flex-1 overflow-hidden m-0">
