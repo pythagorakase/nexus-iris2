@@ -15,6 +15,7 @@ export function MapTab() {
   const [hoveredZone, setHoveredZone] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 600 });
+  const [mapBounds, setMapBounds] = useState<{ minLng: number; maxLng: number; minLat: number; maxLat: number } | null>(null);
 
   // Fetch places
   const { data: places = [], isLoading: placesLoading } = useQuery<Place[]>({
@@ -38,6 +39,79 @@ export function MapTab() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Calculate bounds from zone and place data
+  useEffect(() => {
+    if (!zones.length && !places.length) return;
+
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+
+    // Extract coordinates from zones
+    zones.forEach(zone => {
+      if (!zone.boundary) return;
+      
+      try {
+        const boundary = zone.boundary as any;
+        if (boundary.type === 'MultiPolygon' && boundary.coordinates) {
+          boundary.coordinates.forEach((polygon: any) => {
+            polygon.forEach((ring: any) => {
+              ring.forEach((coord: number[]) => {
+                if (coord.length >= 2) {
+                  const [lng, lat] = coord;
+                  minLng = Math.min(minLng, lng);
+                  maxLng = Math.max(maxLng, lng);
+                  minLat = Math.min(minLat, lat);
+                  maxLat = Math.max(maxLat, lat);
+                }
+              });
+            });
+          });
+        }
+      } catch (e) {
+        console.error(`Failed to parse zone ${zone.id} boundary:`, e);
+      }
+    });
+
+    // Extract coordinates from places
+    places.forEach(place => {
+      if (place.longitude && place.latitude) {
+        const lng = parseFloat(place.longitude);
+        const lat = parseFloat(place.latitude);
+        if (!isNaN(lng) && !isNaN(lat)) {
+          minLng = Math.min(minLng, lng);
+          maxLng = Math.max(maxLng, lng);
+          minLat = Math.min(minLat, lat);
+          maxLat = Math.max(maxLat, lat);
+        }
+      }
+    });
+
+    // Add padding (10% on each side) to ensure everything fits nicely
+    if (minLng !== Infinity && maxLng !== -Infinity) {
+      const lngRange = maxLng - minLng;
+      const latRange = maxLat - minLat;
+      const padding = 0.1;
+      
+      const bounds = {
+        minLng: minLng - lngRange * padding,
+        maxLng: maxLng + lngRange * padding,
+        minLat: minLat - latRange * padding,
+        maxLat: maxLat + latRange * padding
+      };
+      
+      console.log('[MAP BOUNDS CALCULATED]', {
+        original: { minLng, maxLng, minLat, maxLat },
+        withPadding: bounds,
+        lngRange,
+        latRange
+      });
+      
+      setMapBounds(bounds);
+    }
+  }, [zones, places]);
 
   const isLoading = placesLoading || zonesLoading;
 
@@ -69,19 +143,18 @@ export function MapTab() {
     return zoneColors[zoneId] || "#ffffff10";
   };
 
-  // Transform coordinates for SVG display
-  // Using a simple mercator-like projection
+  // Transform coordinates for SVG display using dynamic bounds
   const transformCoordinates = (lng: number, lat: number) => {
-    // Map longitude from [-180, 180] to viewport width
-    // Map latitude from [-90, 90] to viewport height
-    // Focus on US East Coast area: roughly -85 to -70 lng, 25 to 45 lat
-    const minLng = -85;
-    const maxLng = -70;
-    const minLat = 25;
-    const maxLat = 45;
+    // Use dynamic bounds if available, otherwise use global defaults
+    const bounds = mapBounds || {
+      minLng: -180,
+      maxLng: 180,
+      minLat: -90,
+      maxLat: 90
+    };
     
-    const x = ((lng - minLng) / (maxLng - minLng)) * mapDimensions.width;
-    const y = mapDimensions.height - ((lat - minLat) / (maxLat - minLat)) * mapDimensions.height;
+    const x = ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * mapDimensions.width;
+    const y = mapDimensions.height - ((lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * mapDimensions.height;
     
     return { x, y };
   };
@@ -281,11 +354,21 @@ export function MapTab() {
             [DATA STATUS]
           </div>
           <div className="text-muted-foreground mt-1">
-            Zones: {zones.length} loaded
+            Zones: {zones.length} loaded ({visibleZones.length} visible)
           </div>
           <div className="text-muted-foreground">
-            Places: {places.length} loaded
+            Places: {places.length} loaded ({visiblePlaces.length} visible)
           </div>
+          {mapBounds && (
+            <>
+              <div className="text-muted-foreground mt-2 text-[10px]">
+                Lng: [{mapBounds.minLng.toFixed(1)}, {mapBounds.maxLng.toFixed(1)}]
+              </div>
+              <div className="text-muted-foreground text-[10px]">
+                Lat: [{mapBounds.minLat.toFixed(1)}, {mapBounds.maxLat.toFixed(1)}]
+              </div>
+            </>
+          )}
         </div>
       </div>
 
