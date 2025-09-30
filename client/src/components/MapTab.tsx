@@ -14,6 +14,11 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
   // State management for location interactions
   const [hoveredLocation, setHoveredLocation] = useState<number | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+  
+  // Debug: Log when selectedLocation changes
+  useEffect(() => {
+    console.log('[MapTab] selectedLocation changed to:', selectedLocation);
+  }, [selectedLocation]);
   const [expandedZones, setExpandedZones] = useState<Set<number>>(new Set());
   
   // Map control states
@@ -34,6 +39,13 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
   const { data: zones = [], isLoading: zonesLoading } = useQuery<Zone[]>({
     queryKey: ["/api/zones"],
   });
+  
+  // Debug: Log when places data is loaded
+  useEffect(() => {
+    if (places.length > 0) {
+      console.log(`[MapTab] Loaded ${places.length} places`);
+    }
+  }, [places]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -145,7 +157,9 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
 
   // Handle mouse events for drag
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0) { // Left click only
+    // Only start dragging on the background, not on interactive elements
+    if (e.button === 0 && e.target === e.currentTarget) { // Left click only on SVG itself
+      console.log('[MapTab] Starting drag');
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
     }
@@ -165,7 +179,10 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    if (isDragging) {
+      console.log('[MapTab] Ending drag');
+      setIsDragging(false);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -233,7 +250,6 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
           onWheel={handleWheel}
         >
           {/* Background */}
@@ -282,14 +298,25 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
               <g
                 key={place.id}
                 className="cursor-pointer"
-                onMouseEnter={() => setHoveredLocation(place.id)}
-                onMouseLeave={() => setHoveredLocation(null)}
+                onMouseEnter={() => {
+                  if (!isDragging) {
+                    setHoveredLocation(place.id);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!isDragging) {
+                    setHoveredLocation(null);
+                  }
+                }}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedLocation(place.id);
+                  if (!isDragging) {
+                    e.stopPropagation();
+                    console.log(`[MapTab] Clicked location ${place.id}: ${place.name}`);
+                    setSelectedLocation(place.id);
+                    console.log(`[MapTab] Selected location set to ${place.id}`);
+                  }
                 }}
                 data-testid={`place-${place.id}`}
-                style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
               >
                 {/* Pin circle */}
                 <circle
@@ -321,7 +348,7 @@ export function MapTab({ currentChunkLocation = null }: MapTabProps) {
                 )}
                 
                 {/* Label - always in DOM, visibility controlled by display property */}
-                <g style={{ display: labelVisible ? 'block' : 'none' }}>
+                <g style={{ display: labelVisible ? '' : 'none' }}>
                   <rect
                     x={coords.x - 40}
                     y={coords.y - 25}
