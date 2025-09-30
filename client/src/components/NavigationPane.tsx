@@ -72,9 +72,9 @@ export function NavigationPane({
   };
 
   return (
-    <div className="w-80 border-l border-border bg-card terminal-scanlines overflow-hidden flex flex-col">
-      <div className="p-4 border-b border-border">
-        <h2 className="text-sm font-mono text-primary terminal-glow" data-testid="text-navigation-title">
+    <div className="w-full md:w-80 border-l border-border bg-card terminal-scanlines overflow-hidden flex flex-col h-full">
+      <div className="p-3 md:p-4 border-b border-border">
+        <h2 className="text-xs md:text-sm font-mono text-primary terminal-glow" data-testid="text-navigation-title">
           [NAVIGATION]
         </h2>
       </div>
@@ -89,7 +89,7 @@ export function NavigationPane({
               <CollapsibleTrigger className="w-full" data-testid={`button-season-${season.season}`}>
                 <Button
                   variant="ghost"
-                  className="w-full justify-start gap-2 font-mono text-xs hover-elevate"
+                  className="w-full justify-start gap-2 font-mono text-xs hover-elevate h-8 md:h-9"
                 >
                   <ChevronRight
                     className={`h-3 w-3 transition-transform ${
@@ -111,7 +111,7 @@ export function NavigationPane({
                       <CollapsibleTrigger className="w-full" data-testid={`button-episode-${episodeKey}`}>
                         <Button
                           variant="ghost"
-                          className="w-full justify-start gap-2 font-mono text-xs hover-elevate"
+                          className="w-full justify-start gap-2 font-mono text-xs hover-elevate h-8 md:h-9"
                         >
                           <ChevronRight
                             className={`h-3 w-3 transition-transform ${
@@ -126,7 +126,7 @@ export function NavigationPane({
                           <Button
                             key={chunk.id}
                             variant="ghost"
-                            className={`w-full justify-start font-mono text-xs hover-elevate ${
+                            className={`w-full justify-start font-mono text-xs hover-elevate h-8 md:h-9 ${
                               currentChunk === chunk.id ? "bg-accent text-accent-foreground" : ""
                             }`}
                             onClick={() => onChunkSelect(chunk.id)}

@@ -69,16 +69,16 @@ export function NarrativePane({
   return (
     <div className="flex-1 flex flex-col bg-background terminal-scanlines overflow-hidden">
       <ScrollArea className="flex-1" data-testid="scroll-narrative">
-        <div ref={scrollRef} className="p-6 space-y-8 font-mono text-sm">
+        <div ref={scrollRef} className="p-3 md:p-6 space-y-4 md:space-y-8 font-mono text-xs md:text-sm">
           {currentChunkData && (
             <div key={currentChunkData.id} className="space-y-4">
-              <div className="border border-border p-4 rounded-md bg-card" data-testid={`chunk-header-${currentChunkData.id}`}>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="border border-border p-3 md:p-4 rounded-md bg-card" data-testid={`chunk-header-${currentChunkData.id}`}>
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 text-[10px] md:text-xs text-muted-foreground">
                   <span>S{currentChunkData.season}E{currentChunkData.episode}S{currentChunkData.scene}</span>
                   <span className="text-primary terminal-glow">{currentChunkData.metadata.location}</span>
                   <span>{currentChunkData.metadata.timestamp}</span>
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">
+                <div className="mt-2 text-[10px] md:text-xs text-muted-foreground">
                   {currentChunkData.metadata.characters.join(" • ")}
                 </div>
               </div>
@@ -115,7 +115,7 @@ export function NarrativePane({
 
           {typingChunkData && (
             <div key={typingChunkData.id} className="space-y-4">
-              <div className="border border-border p-4 rounded-md bg-card">
+              <div className="border border-border p-3 md:p-4 rounded-md bg-card">
                 <TypewriterText
                   text={`S${typingChunkData.season}E${typingChunkData.episode}S${typingChunkData.scene} ${typingChunkData.metadata.location} ${typingChunkData.metadata.timestamp}`}
                   delay={30}

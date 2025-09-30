@@ -3,10 +3,13 @@ import { StatusBar } from "./StatusBar";
 import { CommandBar } from "./CommandBar";
 import { NarrativePane, type NarrativeChunk } from "./NarrativePane";
 import { NavigationPane } from "./NavigationPane";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export function NexusLayout() {
   const [currentChunk, setCurrentChunk] = useState(1);
   const [showNavigation, setShowNavigation] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [currentModel, setCurrentModel] = useState("Llama 3.3");
   const [isStoryMode, setIsStoryMode] = useState(true);
   const [apexStatus, setApexStatus] = useState<
@@ -14,6 +17,7 @@ export function NexusLayout() {
   >("READY");
   const [provisionalSection, setProvisionalSection] = useState<string | null>(null);
   const [isAwaitingConfirmation, setIsAwaitingConfirmation] = useState(false);
+  const isMobile = useIsMobile();
 
   const mockChunks: NarrativeChunk[] = [
     {
@@ -106,7 +110,13 @@ export function NexusLayout() {
         scene={1}
         apexStatus={apexStatus}
         isStoryMode={isStoryMode}
-        onHamburgerClick={() => setShowNavigation(!showNavigation)}
+        onHamburgerClick={() => {
+          if (isMobile) {
+            setMobileNavOpen(!mobileNavOpen);
+          } else {
+            setShowNavigation(!showNavigation);
+          }
+        }}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -117,12 +127,28 @@ export function NexusLayout() {
           provisionalSection={provisionalSection}
         />
 
-        <NavigationPane
-          currentChunk={currentChunk}
-          onChunkSelect={handleChunkSelect}
-          isCollapsed={!showNavigation}
-        />
+        {!isMobile && (
+          <NavigationPane
+            currentChunk={currentChunk}
+            onChunkSelect={handleChunkSelect}
+            isCollapsed={!showNavigation}
+          />
+        )}
       </div>
+
+      {isMobile && (
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent side="right" className="w-[85%] sm:w-[400px] p-0 bg-card border-l border-border">
+            <NavigationPane
+              currentChunk={currentChunk}
+              onChunkSelect={(id) => {
+                handleChunkSelect(id);
+                setMobileNavOpen(false);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
 
       <CommandBar
         onCommand={handleCommand}
