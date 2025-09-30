@@ -42,17 +42,93 @@ export function MapTab() {
   const isLoading = placesLoading || zonesLoading;
 
   // Zone colors - cyberpunk inspired
-  const zoneColors = [
-    "#00ff4120", // Neon green
-    "#ff00ff20", // Magenta
-    "#00ffff20", // Cyan
-    "#ffff0020", // Yellow
-    "#ff008020", // Pink
-  ];
+  const zoneColors: Record<number, string> = {
+    10: "#00ff4120", // Mid-Atlantic Region - Neon green
+    11: "#ff00ff20", // Night City Center - Magenta
+    12: "#00ffff20", // Night City District 07 - Cyan
+    13: "#ffff0020", // Night City Suburbs - Yellow
+    14: "#ff008020", // Night City Outskirts - Pink
+    15: "#00ff8020", // Virginia Beach - Lime
+    17: "#8000ff20", // Frederick - Purple
+    18: "#ff804020", // The Badlands - Orange
+    19: "#40ff8020", // Outer Wastes - Mint
+    20: "#0080ff20", // Northeast US - Blue
+    30: "#ff004020", // Southeast US - Red
+    31: "#40008020", // New Orleans - Deep purple
+    35: "#ffff8020", // Atlanta - Light yellow
+    40: "#ff80ff20", // Western US - Light pink
+    50: "#80ff0020", // West Europe - Light green
+    60: "#0040ff20", // East Asia - Deep blue
+    70: "#004080a0", // Atlantic Ocean - Ocean blue
+    74: "#00008080", // The Abyss - Dark blue
+    75: "#0080ffa0", // Pacific Ocean - Light ocean blue
+    79: "#ffffff20", // Antarctic - White
+  };
 
   const getZoneColor = (zoneId: number) => {
-    return zoneColors[zoneId % zoneColors.length];
+    return zoneColors[zoneId] || "#ffffff10";
   };
+
+  // Transform coordinates for SVG display
+  // Using a simple mercator-like projection
+  const transformCoordinates = (lng: number, lat: number) => {
+    // Map longitude from [-180, 180] to viewport width
+    // Map latitude from [-90, 90] to viewport height
+    // Focus on US East Coast area: roughly -85 to -70 lng, 25 to 45 lat
+    const minLng = -85;
+    const maxLng = -70;
+    const minLat = 25;
+    const maxLat = 45;
+    
+    const x = ((lng - minLng) / (maxLng - minLng)) * mapDimensions.width;
+    const y = mapDimensions.height - ((lat - minLat) / (maxLat - minLat)) * mapDimensions.height;
+    
+    return { x, y };
+  };
+
+  // Parse zone boundary and convert to SVG polygon points
+  const getZonePolygonPoints = (boundary: any): string => {
+    if (!boundary) return "";
+    
+    try {
+      if (boundary.type === 'MultiPolygon' && boundary.coordinates) {
+        // Get the first polygon from the multipolygon
+        const firstPolygon = boundary.coordinates[0]?.[0];
+        if (firstPolygon && Array.isArray(firstPolygon)) {
+          // Convert coordinates to SVG points
+          const points = firstPolygon.map((coord: number[]) => {
+            if (coord.length >= 2) {
+              const transformed = transformCoordinates(coord[0], coord[1]);
+              return `${transformed.x},${transformed.y}`;
+            }
+            return null;
+          }).filter(Boolean).join(' ');
+          
+          return points;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse zone boundary:', e);
+    }
+    
+    return "";
+  };
+
+  // Get place coordinates
+  const getPlaceCoordinates = (place: Place): { x: number; y: number } | null => {
+    if (place.longitude && place.latitude) {
+      const lng = parseFloat(place.longitude);
+      const lat = parseFloat(place.latitude);
+      if (!isNaN(lng) && !isNaN(lat)) {
+        return transformCoordinates(lng, lat);
+      }
+    }
+    return null;
+  };
+
+  // Filter zones and places with valid coordinates
+  const visibleZones = zones.filter(zone => zone.boundary);
+  const visiblePlaces = places.filter(place => place.longitude && place.latitude);
 
   return (
     <div className="flex h-full bg-background">
@@ -85,51 +161,11 @@ export function MapTab() {
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" />
 
-          {/* Placeholder landmass - abstract coastline */}
-          <g id="landmass">
-            <path
-              d="M 150 200 Q 250 150, 350 180 T 450 220 Q 520 250, 550 350 L 520 450 Q 450 480, 350 460 L 250 420 Q 180 380, 150 300 Z"
-              fill="none"
-              stroke="#00ff00"
-              strokeWidth="0.5"
-              className="terminal-glow"
-              opacity="0.8"
-            />
-            <path
-              d="M 600 100 Q 650 80, 700 120 L 720 200 Q 680 250, 620 220 L 600 150 Z"
-              fill="none"
-              stroke="#00ff00"
-              strokeWidth="0.5"
-              className="terminal-glow"
-              opacity="0.8"
-            />
-            <path
-              d="M 80 400 Q 120 380, 160 420 L 140 480 Q 100 490, 70 460 Z"
-              fill="none"
-              stroke="#00ff00"
-              strokeWidth="0.5"
-              className="terminal-glow"
-              opacity="0.8"
-            />
-          </g>
-
-          {/* Zones (when they exist) */}
-          {zones.map((zone) => {
-            // Parse boundary coordinates if they exist
-            let points = "";
-            if (zone.boundary) {
-              try {
-                const boundary = zone.boundary as any;
-                if (boundary && boundary.coordinates) {
-                  points = boundary.coordinates;
-                }
-              } catch (e) {
-                // Invalid boundary data
-                console.error('Failed to parse zone boundary:', e);
-              }
-            }
+          {/* Zones */}
+          {visibleZones.map((zone) => {
+            const points = getZonePolygonPoints(zone.boundary);
             
-            if (!zone.boundary || !points) {
+            if (!points) {
               return null;
             }
             
@@ -140,7 +176,7 @@ export function MapTab() {
                   fill={getZoneColor(zone.id)}
                   stroke="#00ff00"
                   strokeWidth="0.5"
-                  opacity={hoveredZone === zone.id ? 0.4 : 0.2}
+                  opacity={hoveredZone === zone.id ? 0.6 : 0.3}
                   onMouseEnter={() => setHoveredZone(zone.id)}
                   onMouseLeave={() => setHoveredZone(null)}
                   className="cursor-pointer transition-opacity"
@@ -151,9 +187,12 @@ export function MapTab() {
           })}
 
           {/* Places */}
-          {places.map((place) => {
-            const x = place.longitude ? parseFloat(place.longitude) * 4 + 400 : 400;
-            const y = place.latitude ? 300 - parseFloat(place.latitude) * 4 : 300;
+          {visiblePlaces.map((place) => {
+            const coords = getPlaceCoordinates(place);
+            
+            if (!coords) {
+              return null;
+            }
 
             return (
               <g
@@ -163,15 +202,15 @@ export function MapTab() {
                 data-testid={`place-${place.id}`}
               >
                 <circle
-                  cx={x}
-                  cy={y}
+                  cx={coords.x}
+                  cy={coords.y}
                   r="3"
                   fill="#00ff00"
                   className="terminal-glow animate-pulse"
                 />
                 <circle
-                  cx={x}
-                  cy={y}
+                  cx={coords.x}
+                  cy={coords.y}
                   r="8"
                   fill="transparent"
                   stroke="#00ff00"
@@ -180,8 +219,8 @@ export function MapTab() {
                   className="terminal-glow"
                 />
                 <text
-                  x={x}
-                  y={y - 12}
+                  x={coords.x}
+                  y={coords.y - 12}
                   fill="#00ff00"
                   fontSize="10"
                   textAnchor="middle"
@@ -195,7 +234,7 @@ export function MapTab() {
           })}
 
           {/* Empty state message */}
-          {!isLoading && places.length === 0 && zones.length === 0 && (
+          {!isLoading && visiblePlaces.length === 0 && visibleZones.length === 0 && (
             <text
               x="50%"
               y="50%"
@@ -204,7 +243,7 @@ export function MapTab() {
               fontSize="14"
               className="font-mono"
             >
-              [NO DATA AVAILABLE]
+              [NO LOCATION DATA AVAILABLE]
             </text>
           )}
         </svg>
@@ -215,11 +254,11 @@ export function MapTab() {
           <div className="space-y-1 text-muted-foreground">
             <div className="flex items-center gap-2">
               <MapPin className="h-3 w-3 text-primary" />
-              <span>Places</span>
+              <span>Places ({visiblePlaces.length})</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-primary/20 border border-primary/50" />
-              <span>Zones</span>
+              <span>Zones ({visibleZones.length})</span>
             </div>
           </div>
         </div>
@@ -231,10 +270,23 @@ export function MapTab() {
               {zones.find((z) => z.id === hoveredZone)?.name}
             </div>
             <div className="text-muted-foreground">
-              {zones.find((z) => z.id === hoveredZone)?.summary}
+              {zones.find((z) => z.id === hoveredZone)?.summary || "No description available"}
             </div>
           </div>
         )}
+        
+        {/* Data info */}
+        <div className="absolute top-4 left-4 bg-card/80 border border-border p-2 rounded-md font-mono text-xs">
+          <div className="text-primary">
+            [DATA STATUS]
+          </div>
+          <div className="text-muted-foreground mt-1">
+            Zones: {zones.length} loaded
+          </div>
+          <div className="text-muted-foreground">
+            Places: {places.length} loaded
+          </div>
+        </div>
       </div>
 
       {/* Place Details Modal */}
@@ -251,6 +303,14 @@ export function MapTab() {
                 <div>
                   <span className="text-muted-foreground">Type: </span>
                   <span className="text-foreground">{selectedPlace.type}</span>
+                </div>
+              )}
+              {selectedPlace?.zoneId && (
+                <div>
+                  <span className="text-muted-foreground">Zone: </span>
+                  <span className="text-foreground">
+                    {zones.find(z => z.id === selectedPlace.zoneId)?.name || `Zone ${selectedPlace.zoneId}`}
+                  </span>
                 </div>
               )}
               {selectedPlace?.district && (
@@ -281,6 +341,14 @@ export function MapTab() {
                 <div>
                   <span className="text-muted-foreground">Elevation: </span>
                   <span className="text-foreground">{selectedPlace.elevation}m</span>
+                </div>
+              )}
+              {selectedPlace?.latitude && selectedPlace?.longitude && (
+                <div>
+                  <span className="text-muted-foreground">Coordinates: </span>
+                  <span className="text-foreground">
+                    {parseFloat(selectedPlace.latitude).toFixed(4)}, {parseFloat(selectedPlace.longitude).toFixed(4)}
+                  </span>
                 </div>
               )}
             </div>
